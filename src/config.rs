@@ -108,6 +108,51 @@ lazy_static::lazy_static! {
 
 const NUM_CHARS: &[char] = &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
+/// Local-only build: set by the portable launcher to `<folder of the launcher exe>\data`.
+/// Keep in sync with `LOCAL_ONLY_DATA_DIR_ENV` in libs/portable/src/main.rs.
+pub const LOCAL_ONLY_DATA_DIR_ENV: &str = "LOCAL_ONLY_DATA_DIR";
+
+/// Local-only build (portable, Windows): the folder holding config, keys and logs.
+///
+/// - Started by the single-exe launcher: `LOCAL_ONLY_DATA_DIR` (the launcher's `.\data`).
+/// - Started from the extracted `...\data\app\rustdesk.exe` directly: that `...\data`.
+/// - Started from an unpacked folder: `<folder of rustdesk.exe>\data`.
+///
+/// The launcher passes the variable to the main process, and every helper process the app
+/// starts inherits it, so they all agree on the same folder.
+#[cfg(windows)]
+pub fn local_only_data_dir() -> Option<PathBuf> {
+    LOCAL_ONLY_DATA_DIR.clone()
+}
+
+#[cfg(windows)]
+lazy_static::lazy_static! {
+    static ref LOCAL_ONLY_DATA_DIR: Option<PathBuf> = compute_local_only_data_dir();
+}
+
+#[cfg(windows)]
+fn compute_local_only_data_dir() -> Option<PathBuf> {
+    if let Some(v) = std::env::var_os(LOCAL_ONLY_DATA_DIR_ENV) {
+        if !v.is_empty() {
+            return Some(PathBuf::from(v));
+        }
+    }
+    let exe = std::env::current_exe().ok()?;
+    let parent = exe.parent()?;
+    let is_extracted = parent
+        .file_name()
+        .map_or(false, |n| n.eq_ignore_ascii_case("app"))
+        && parent
+            .parent()
+            .and_then(|p| p.file_name())
+            .map_or(false, |n| n.eq_ignore_ascii_case("data"));
+    if is_extracted {
+        Some(parent.parent()?.to_path_buf())
+    } else {
+        Some(parent.join("data"))
+    }
+}
+
 const CHARS: &[char] = &[
     '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k',
     'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
@@ -927,6 +972,13 @@ impl Config {
             path.push(p);
             return path;
         }
+        // Local-only build (portable): config and keys live next to the exe, in .\data\config.
+        #[cfg(windows)]
+        if let Some(dir) = local_only_data_dir() {
+            let mut path = dir.join("config");
+            path.push(p);
+            return path;
+        }
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         {
             #[cfg(not(target_os = "macos"))]
@@ -953,6 +1005,11 @@ impl Config {
     /// See [`Self::get_home()`] for security considerations regarding `$HOME` usage.
     #[allow(unreachable_code)]
     pub fn log_path() -> PathBuf {
+        // Local-only build (portable): logs live next to the exe, in .\data\log.
+        #[cfg(windows)]
+        if let Some(dir) = local_only_data_dir() {
+            return dir.join("log");
+        }
         #[cfg(target_os = "macos")]
         {
             if let Some(path) = dirs_next::home_dir().as_mut() {
