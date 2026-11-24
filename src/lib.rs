@@ -15,6 +15,7 @@ use std::{
 };
 pub use tokio;
 pub use tokio_util;
+pub mod net_guard;
 pub mod proxy;
 pub mod socket_client;
 pub mod tcp;
@@ -508,7 +509,8 @@ pub const VER_TYPE_RUSTDESK_CLIENT: &str = "rustdesk-client";
 pub const VER_TYPE_RUSTDESK_SERVER: &str = "rustdesk-server";
 
 pub fn version_check_request(typ: String) -> (VersionCheckRequest, String) {
-    const URL: &str = "https://api.rustdesk.com/version/latest";
+    // Local-only build: no update check endpoint; an empty URL is refused by every HTTP path.
+    const URL: &str = "";
 
     use sysinfo::System;
     let system = System::new();

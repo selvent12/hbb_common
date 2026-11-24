@@ -104,6 +104,10 @@ impl FramedSocket {
         password: &'a str,
         ms_timeout: u64,
     ) -> ResultType<Self> {
+        // Local-only: a SOCKS5 proxy forwards to arbitrary destinations, so it is never used.
+        if true {
+            anyhow::bail!("Proxy is disabled (local-only build)");
+        }
         let framed = if username.trim().is_empty() {
             super::timeout(ms_timeout, Socks5UdpFramed::connect(proxy, Some(local))).await??
         } else {
@@ -133,10 +137,11 @@ impl FramedSocket {
         match self {
             Self::Direct(f) => {
                 if let TargetAddr::Ip(addr) = addr {
+                    crate::net_guard::check_addr(&addr)?;
                     f.get_ref().send_to(&send_data, addr).await?;
                 }
             }
-            Self::ProxySocks(f) => f.send((send_data, addr)).await?,
+            Self::ProxySocks(_) => anyhow::bail!("Proxy is disabled (local-only build)"),
         };
         Ok(())
     }
@@ -154,10 +159,11 @@ impl FramedSocket {
         match self {
             Self::Direct(f) => {
                 if let TargetAddr::Ip(addr) = addr {
+                    crate::net_guard::check_addr(&addr)?;
                     f.get_ref().send_to(msg, addr).await?;
                 }
             }
-            Self::ProxySocks(f) => f.send((Bytes::from(msg), addr)).await?,
+            Self::ProxySocks(_) => anyhow::bail!("Proxy is disabled (local-only build)"),
         };
         Ok(())
     }

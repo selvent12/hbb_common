@@ -1,4 +1,4 @@
-use crate::{bail, bytes_codec::BytesCodec, ResultType, config::Socks5Server, proxy::Proxy};
+use crate::{bail, bytes_codec::BytesCodec, ResultType, config::Socks5Server};
 use anyhow::Context as AnyhowCtx;
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::{SinkExt, StreamExt};
@@ -122,7 +122,9 @@ impl FramedStream {
         ms_timeout: u64,
     ) -> ResultType<Self> {
         let mut last_error = None;
-        for remote_addr in lookup_host(&remote_addr).await? {
+        // Local-only: only IP literals in private ranges, never a DNS lookup.
+        let remote_addrs = vec![crate::net_guard::check_target(&remote_addr.to_string())?];
+        for remote_addr in remote_addrs {
             let local = if let Some(addr) = local_addr {
                 addr
             } else {
@@ -163,8 +165,10 @@ impl FramedStream {
     where
         T: IntoTargetAddr<'t>,
     {
-        let proxy = Proxy::from_conf(proxy_conf, Some(ms_timeout))?;
-        proxy.connect::<T>(target, local_addr).await
+        // Local-only: a proxy forwards to arbitrary destinations, so it is never used.
+        let _ = (target, local_addr, proxy_conf, ms_timeout);
+        log::warn!("net_guard: proxy connections are disabled (local-only build)");
+        bail!("Proxy connections are disabled (local-only build)")
     }
 
     pub fn local_addr(&self) -> SocketAddr {

@@ -80,6 +80,14 @@ pub fn test_if_valid_server(host: &str, test_with_proxy: bool) -> String {
     let host = check_port(host, 0);
     use std::net::ToSocketAddrs;
 
+    // Local-only build: no DNS lookups; only local IP literals are valid.
+    if true {
+        let _ = test_with_proxy;
+        return match crate::net_guard::check_target(&host) {
+            Ok(_) => "".to_owned(),
+            Err(err) => err.to_string(),
+        };
+    }
     if test_with_proxy && NetworkType::ProxySocks == Config::get_network_type() {
         test_if_valid_server_for_proxy_(&host)
     } else {
@@ -187,6 +195,11 @@ pub fn is_ipv4(target: &TargetAddr<'_>) -> bool {
 
 #[inline]
 pub async fn query_nip_io(addr: &SocketAddr) -> ResultType<SocketAddr> {
+    // Local-only build: nip.io is an external DNS service.
+    if true {
+        let _ = addr;
+        anyhow::bail!("nip.io lookup is disabled (local-only build)");
+    }
     tokio::net::lookup_host(format!("{}.nip.io:{}", addr.ip(), addr.port()))
         .await?
         .find(|x| x.is_ipv6())
@@ -207,16 +220,15 @@ pub fn ipv4_to_ipv6(addr: String, ipv4: bool) -> String {
 /// synthesized IPv6 leads on a v6-only host. Preferred, not proven reachable: what `test_target`
 /// falls back to, and what the controller's NAT test takes as is to spare itself the proof.
 async fn resolve_target(target: &str) -> ResultType<SocketAddr> {
-    tokio::net::lookup_host(target)
-        .await?
-        .next()
-        .context(format!("Failed to look up host for {target}"))
+    // Local-only build: no DNS, only local IP literals.
+    crate::net_guard::check_target(target)
 }
 
 /// The address of `target` a TCP connection reaches, the resolver's candidates tried in order until
 /// one answers: an AAAA the server refuses is passed over for its A record, which the order alone
 /// would not do. For the rendezvous registration and the punch reply, which live on what it picks.
 async fn test_target(target: &str) -> ResultType<SocketAddr> {
+    crate::net_guard::check_target(target)?;
     if let Ok(Ok(s)) = super::timeout(1000, tokio::net::TcpStream::connect(target)).await {
         if let Ok(addr) = s.peer_addr() {
             return Ok(addr);

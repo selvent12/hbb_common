@@ -304,6 +304,8 @@ impl WsFramedStream {
         local_addr: Option<SocketAddr>,
         ms_timeout: u64,
     ) -> ResultType<Self> {
+        // Local-only build: only local IP literals, never a DNS lookup.
+        crate::net_guard::check_url(url.as_ref())?;
         let proxy_conf = Config::get_socks();
         let (stream, addr) =
             Self::connect(url.as_ref(), local_addr, proxy_conf.as_ref(), ms_timeout).await?;
