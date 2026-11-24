@@ -12,8 +12,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 /// Whether `ip` belongs to a network that is not routed on the public internet.
 ///
-/// IPv4: 10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, 100.64/10 (carrier-grade NAT,
-/// also used by VPNs such as Tailscale), and the limited broadcast 255.255.255.255.
+/// IPv4: 10/8, 172.16/12, 192.168/16, 127/8, 169.254/16 and the limited broadcast
+/// 255.255.255.255. (100.64/10 carrier-grade NAT is deliberately not included.)
 /// IPv6: ::1, fc00::/7 (unique local), fe80::/10 (link-local), and IPv4-mapped forms of
 /// the IPv4 ranges above.
 pub fn is_local_ip(ip: &IpAddr) -> bool {
@@ -24,12 +24,7 @@ pub fn is_local_ip(ip: &IpAddr) -> bool {
 }
 
 fn is_local_ipv4(ip: &Ipv4Addr) -> bool {
-    let o = ip.octets();
-    ip.is_private()
-        || ip.is_loopback()
-        || ip.is_link_local()
-        || ip.is_broadcast()
-        || (o[0] == 100 && (o[1] & 0xC0) == 64)
+    ip.is_private() || ip.is_loopback() || ip.is_link_local() || ip.is_broadcast()
 }
 
 fn is_local_ipv6(ip: &Ipv6Addr) -> bool {
@@ -95,8 +90,6 @@ mod tests {
             "192.168.1.10",
             "127.0.0.1",
             "169.254.1.1",
-            "100.64.0.1",
-            "100.127.255.255",
             "255.255.255.255",
             "::1",
             "fd00::1",
@@ -109,7 +102,8 @@ mod tests {
             "8.8.8.8",
             "1.1.1.1",
             "172.32.0.1",
-            "100.128.0.1",
+            "100.64.0.1",
+            "100.127.255.255",
             "0.0.0.0",
             "2001:4860::8888",
             "::ffff:8.8.8.8",
