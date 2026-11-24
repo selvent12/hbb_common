@@ -513,6 +513,10 @@ impl WebRTCStream {
 
     /// The default UDP STUN servers as bare `host:port`, for application-level address probes.
     pub fn default_stun_servers() -> Vec<String> {
+        // Local-only build: no public STUN servers.
+        if true {
+            return Vec::new();
+        }
         DEFAULT_ICE_SERVERS
             .iter()
             .filter_map(|url| url.strip_prefix("stun:").map(str::to_owned))
@@ -574,6 +578,11 @@ impl WebRTCStream {
         force_relay: bool,
         ms_timeout: u64,
     ) -> ResultType<Self> {
+        // Local-only build: WebRTC needs STUN/TURN servers and rendezvous signaling.
+        if true {
+            let _ = (remote_endpoint, force_relay, ms_timeout);
+            anyhow::bail!("WebRTC is disabled (local-only build)");
+        }
         let Some(rt) = WEBRTC_RT.as_ref() else {
             return Err(anyhow::anyhow!("WebRTC I/O runtime unavailable"));
         };

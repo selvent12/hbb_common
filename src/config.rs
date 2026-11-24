@@ -113,7 +113,11 @@ const CHARS: &[char] = &[
     'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
 ];
 
-pub const RENDEZVOUS_SERVERS: &[&str] = &["rs-ny.rustdesk.com"];
+// Local-only build: no rendezvous/relay server. One empty entry keeps `RENDEZVOUS_SERVERS[0]`
+// valid for callers that index it; an empty host is refused by `net_guard` without any lookup.
+pub const RENDEZVOUS_SERVERS: &[&str] = &[""];
+// Upstream public-server key. Only a verification key, not an endpoint; kept so key handling
+// stays protocol-compatible. Nothing connects to the server it belongs to.
 pub const RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
 
 pub const RENDEZVOUS_PORT: i32 = 21116;
@@ -1047,6 +1051,10 @@ impl Config {
     }
 
     pub fn get_rendezvous_server() -> String {
+        // Local-only build: there is never a rendezvous server.
+        if true {
+            return String::new();
+        }
         let mut rendezvous_server = EXE_RENDEZVOUS_SERVER.read().unwrap().clone();
         if rendezvous_server.is_empty() {
             rendezvous_server = Self::get_option("custom-rendezvous-server");
@@ -1070,6 +1078,10 @@ impl Config {
     }
 
     pub fn get_rendezvous_servers() -> Vec<String> {
+        // Local-only build: there is never a rendezvous server.
+        if true {
+            return Vec::new();
+        }
         let s = EXE_RENDEZVOUS_SERVER.read().unwrap().clone();
         if !s.is_empty() {
             return vec![s];
@@ -1672,6 +1684,10 @@ impl Config {
     }
 
     pub fn get_socks() -> Option<Socks5Server> {
+        // Local-only build: proxies are never used.
+        if true {
+            return None;
+        }
         Self::get_socks_from_custom_client_advanced_settings(&OVERWRITE_SETTINGS.read().unwrap())
             .or(CONFIG2.read().unwrap().socks.clone())
             .or(Self::get_socks_from_custom_client_advanced_settings(
@@ -1685,6 +1701,10 @@ impl Config {
     }
 
     pub fn get_network_type() -> NetworkType {
+        // Local-only build: proxies are never used.
+        if true {
+            return NetworkType::Direct;
+        }
         if OVERWRITE_SETTINGS
             .read()
             .unwrap()
